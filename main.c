@@ -141,15 +141,15 @@ int typeToSize(char type)
     switch(type)
     {
         case 'P':
-        return 5;
+			return 5;
         case 'N':
-        return 4;
+			return 4;
         case 'C':
-        return 3;
+			return 3;
         case 'S':
-        return 2;
+			return 2;
         default:
-        return -1;
+			return -1;
     }
 
     return 0;
@@ -177,7 +177,32 @@ int typeToSize(char type)
  **/
 void init_boat(Boat *b, char type, Position xy, char dir)
 {
-    //Implementar
+	int size = typeToSize(type);
+
+	b->afloat = size;
+	b->tSize = size;
+	b->type = type;
+
+	StateCoord state_coords;
+	Position pos = xy;
+	state_coords.afloat = 1;
+
+	state_coords.pos = pos;
+
+	b->coord[0] = state_coords;
+
+	// Adiciona todas as coordenadas precisas
+	for(int i = 1; i < size; i++) {
+		if(dir == 'H') {
+			pos.x += 1;
+		} else if(dir == 'V') {
+			pos.y += 1;
+		}
+		state_coords.pos = pos;
+		b->coord[i] = state_coords;
+	}
+
+	return;
 }
 
 
@@ -199,7 +224,14 @@ void init_boat(Boat *b, char type, Position xy, char dir)
  **/
 int check_free(int n, int m, Boat *boat, char board[n][m])
 {
-   //Implementar
+	if(
+		(boat->coord[0].pos.x < 0 || boat->coord[0].pos.y < 0)
+		|| 
+		(boat->coord[boat->tSize - 1].pos.x > N || boat->coord[boat->tSize - 1].pos.y > M)) {
+		return 0;
+	}
+
+	// Verificar se não há sobrepostos
 
    return -1;
 }
@@ -286,7 +318,18 @@ int main(void)
     Board brd;
     init_board(N, M, &brd);
     print_board(N, M, brd.board, 1);
+	Boat b;
+	Position xy;
+	xy.x = 7;
+	xy.y = 7;
+	init_boat(&b, 'P', xy, 'H');
     
+	for(int i = 0; i < b.tSize; i++) {
+		printf("Positions: \n X: %d \nY: %d\n", b.coord[i].pos.x, b.coord[i].pos.y);
+	}
+
+	printf("%d", check_free(N, M, &b, brd.board));
+
     /**Exemplo de uso da print_board e da place_boat**/
     /**Precisa de as implementar primeiro**/
     //print_board(N, M, brd.board, 0);
