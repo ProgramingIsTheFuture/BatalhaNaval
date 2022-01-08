@@ -233,7 +233,20 @@ int check_free(int n, int m, Boat *boat, char board[n][m])
 
 	// Verificar se não há sobrepostos
 
-   return -1;
+	int x = 0;
+	int y = 0;
+	// Verifica em todas as posições do boat se existe alguma coisa dentro do board
+	for(int i = 0; i < boat->tSize; i++) {
+		x = boat->coord[i].pos.x;
+		y = boat->coord[i].pos.y;
+
+		// Se for diferente de ' ' quer dizer que existe algum barco
+		if(board[x][y] != ' ') {
+			return 0;
+		}
+	}
+
+   return 1;
 }
 
 /** 
@@ -320,15 +333,27 @@ int main(void)
     print_board(N, M, brd.board, 1);
 	Boat b;
 	Position xy;
-	xy.x = 7;
-	xy.y = 7;
+	xy.x = 3;
+	xy.y = 3;
 	init_boat(&b, 'P', xy, 'H');
     
 	for(int i = 0; i < b.tSize; i++) {
 		printf("Positions: \n X: %d \nY: %d\n", b.coord[i].pos.x, b.coord[i].pos.y);
 	}
 
-	printf("%d", check_free(N, M, &b, brd.board));
+	// Coloca o barco dentro do tabuleiro
+	brd.board[3][3] = 'P';
+	brd.board[3][4] = 'P';
+	brd.board[3][5] = 'P';
+	brd.board[3][6] = 'P';
+	brd.board[3][7] = 'P';
+
+	xy.x = 3;
+	xy.y = 3;
+	init_boat(&b, 'N', xy, 'V');
+
+	// check_free tem que ser 0 pois já existe um barco a ocupar a posição (3, 3)
+	printf("Boat2 Possible? [0?] : %d", check_free(N, M, &b, brd.board));
 
     /**Exemplo de uso da print_board e da place_boat**/
     /**Precisa de as implementar primeiro**/
