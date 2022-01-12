@@ -27,7 +27,7 @@ typedef struct
 /**Representa um barco**/
 typedef struct
 {
-    int afloat;        //Posições que ainda não foram afundadas
+    int afloat;        //Posições que ainda não foram afundadas 
     int tSize;         //Tamanho do tipo do barco 
     StateCoord coord[5]; //O barco maior tem 5 coordenadas, usando o tSize garantimos que acedemos apenas às existentes
     char type;         //Caracter que representa o tipo do barco
@@ -75,6 +75,11 @@ void init_board(int n, int m, Board *b)
     }
 }
 
+int check_status(char status) {
+	if(status == 'A' || status == 'F' || status == '*') return 1;
+	return 0;
+}
+
 /**
  * Function: print_board
  * 
@@ -112,7 +117,19 @@ void print_board(int n, int m, char board[n][m], int flag)
         }
         else // Esconde os barcos
         {
-            //Implementar
+			for (int j = 0; j < n; j++)
+            {
+				// 1 se for A ou F ou *
+				// 0 se for um barco não afundado
+				int status = check_status(board[i][j]); 
+				if(status) {
+					printf(" %c |", board[i][j]);
+				}
+				if(!status) {
+					printf("   |");
+				}
+            }
+            printf("\n");
         }
 
         printf("+");
@@ -151,8 +168,6 @@ int typeToSize(char type)
         default:
 			return -1;
     }
-
-    return 0;
 }
 
 /**
@@ -194,9 +209,9 @@ void init_boat(Boat *b, char type, Position xy, char dir)
 	// Adiciona todas as coordenadas precisas
 	for(int i = 1; i < size; i++) {
 		if(dir == 'H') {
-			pos.x += 1;
-		} else if(dir == 'V') {
 			pos.y += 1;
+		} else if(dir == 'V') {
+			pos.x += 1;
 		}
 		state_coords.pos = pos;
 		b->coord[i] = state_coords;
@@ -224,15 +239,16 @@ void init_boat(Boat *b, char type, Position xy, char dir)
  **/
 int check_free(int n, int m, Boat *boat, char board[n][m])
 {
+	/*
 	if(
 		(boat->coord[0].pos.x < 0 || boat->coord[0].pos.y < 0)
 		|| 
 		(boat->coord[boat->tSize - 1].pos.x > N || boat->coord[boat->tSize - 1].pos.y > M)) {
 		return 0;
 	}
+	*/
 
 	// Verificar se não há sobrepostos
-
 	int x = 0;
 	int y = 0;
 	// Verifica em todas as posições do boat se existe alguma coisa dentro do board
@@ -247,6 +263,13 @@ int check_free(int n, int m, Boat *boat, char board[n][m])
 	}
 
    return 1;
+}
+
+void place_on_board(Board *board, Boat *boat) {
+	for(int i = 0; i < boat->tSize; i++) {
+		board->board[boat->coord[i].pos.x][boat->coord[i].pos.y] = boat->type;
+	}
+	return;
 }
 
 /** 
@@ -269,9 +292,46 @@ int check_free(int n, int m, Boat *boat, char board[n][m])
  **/
 int place_boat(int x1, int y1, int dir, char type, Board *board)
 {
-    //Implementar
+	if(dir != 'H' && dir != 'V') {
+		return -3;
+	}
 
-    return 1;
+	int size = typeToSize(type);
+	if (size == -1) {
+		return -4;
+	}
+
+	if(x1 < 0 || y1 < 0) {
+		return -2;
+	}
+	if(dir == 'V') {
+		if (x1 + size > M) {
+			return -2;
+		}
+	} else if (dir == 'H') {
+		if (y1 + size > N) {
+			return -2;
+		}
+	}
+
+	Boat new_boat;
+	Position pos;
+	pos.x = x1;
+	pos.y = y1;
+	init_boat(&new_boat, type, pos, dir);
+
+	int free = check_free(N, M, &new_boat, board->board);
+	if(!free) {
+		return -1;
+	}
+
+	place_on_board(board, &new_boat);
+
+	board->boats[board->numBoats] = new_boat;
+	board->numBoats += 1;
+	board->numBoatsAfloat += 1;
+
+    return 0;
 }
 
 /**
@@ -292,8 +352,31 @@ int place_boat(int x1, int y1, int dir, char type, Board *board)
 char check_sink(int x, int y, Board *board)
 {
     //Implementar
+	if(x < 0 || y < 0) {
+		return 'I';
+	}
+	if(x > M - 1 || y > N - 1) {
+		return 'I';
+	}
 
-    return 'O';
+	// Verificar se o barco afundou todo!
+	for(int i = 0; i < board->numBoats; i++ ) {
+		if(board->boats[i].afloat == 0) {
+			continue;
+		}
+
+		if(board->boats[i].afloat > 1) {
+			continue;
+		}
+
+		for(int j = 0; j < board->boats[i].tSize; j++) {
+			if((board->boats[i].coord[j].pos.x == x && board->boats[i].coord[j].pos.y == y) && board->boats[i].coord[j].afloat == 1) {
+				return board->boats[i].type;
+			}
+		}
+	}
+
+	return 'F';
 }
 
 /**
@@ -319,9 +402,55 @@ char check_sink(int x, int y, Board *board)
  **/
 int target(int x, int y, Board *board)
 {
-    //Implementar
+	int sink = check_sink(x, y, board);
+	if(sink == 'I') {
+		return -2;
+	}
 
-    return -3;
+	// Se for * ou A ou F
+	// retorna 0
+	int status = check_status(board->board[x][y]);
+	if (status == 1) {
+		return 0;
+	}
+
+	if(board->board[x][y] == ' ') {
+		board->board[x][y] = 'F';
+		return -1;
+	}
+
+	int i = 0;
+	for(int i = 0; i < board->numBoats; i++) {
+		if(board->boats[i].afloat == 0) {
+			continue;
+		}
+
+		for(int j = 0; j < board->numBoats; j++) {
+			if(board->boats[i].coord[j].pos.x == x && board->boats[i].coord[j].pos.y == y) {
+				
+			}
+		}
+	}
+
+	if(sink == 'F') {
+		// Verificar se acerta num barco
+		// Caso acerte
+		if(typeToSize(board->board[x][y]) != -1) {
+			board->board[x][y] = '*';
+		}
+		return 1;
+	}
+
+	// O barco afundou temos que retornar o tamanho
+	// Verificar qual é o barco e trocar na board as posições do barco por A
+
+
+	// Retornar o tamanho do barco
+	return 00;
+}
+
+void bbb(Boat *b) {
+	b->tSize = 10;
 }
 
 //int colocaNavio()
@@ -330,36 +459,32 @@ int main(void)
 
     Board brd;
     init_board(N, M, &brd);
-    print_board(N, M, brd.board, 1);
-	Boat b;
-	Position xy;
-	xy.x = 3;
-	xy.y = 3;
-	init_boat(&b, 'P', xy, 'H');
+    print_board(N, M, brd.board, 0);
     
-	for(int i = 0; i < b.tSize; i++) {
-		printf("Positions: \n X: %d \nY: %d\n", b.coord[i].pos.x, b.coord[i].pos.y);
+	int a = place_boat(3, 3, 'H', 'P', &brd);
+	printf("Place error: %d\n", a);
+    print_board(N, M, brd.board, 0);
+
+	printf("%c", brd.boats[0].type);
+
+	target(3, 4, &brd);
+    print_board(N, M, brd.board, 0);
+	target(3, 5, &brd);
+    print_board(N, M, brd.board, 0);
+	target(3, 6, &brd);
+    print_board(N, M, brd.board, 0);
+	target(3, 7, &brd);
+    print_board(N, M, brd.board, 0);
+
+	brd.boats[0].afloat = 1;
+    print_board(N, M, brd.board, 0);
+	for(int i = 1; i < brd.boats[0].tSize; i++) {
+		brd.boats[0].coord[i].afloat = 0;
 	}
 
-	// Coloca o barco dentro do tabuleiro
-	brd.board[3][3] = 'P';
-	brd.board[3][4] = 'P';
-	brd.board[3][5] = 'P';
-	brd.board[3][6] = 'P';
-	brd.board[3][7] = 'P';
+	char b = check_sink(3, 3, &brd);
+	printf("CHAR: %c\n", b);
+    print_board(N, M, brd.board, 0);
 
-	xy.x = 3;
-	xy.y = 3;
-	init_boat(&b, 'N', xy, 'V');
-
-	// check_free tem que ser 0 pois já existe um barco a ocupar a posição (3, 3)
-	printf("Boat2 Possible? [0?] : %d", check_free(N, M, &b, brd.board));
-
-    /**Exemplo de uso da print_board e da place_boat**/
-    /**Precisa de as implementar primeiro**/
-    //print_board(N, M, brd.board, 0);
-    //place_boat(1,3, 'H', 'P', &brd);
-    
-    
     return 0;
 }
