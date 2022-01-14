@@ -361,14 +361,18 @@ char check_sink(int x, int y, Board *board)
 
 	// Verificar se o barco afundou todo!
 	for(int i = 0; i < board->numBoats; i++ ) {
+		// Verifica se já afundou
 		if(board->boats[i].afloat == 0) {
 			continue;
 		}
 
+		// Verifica quantas partes faltam afundar! 
 		if(board->boats[i].afloat > 1) {
 			continue;
 		}
 
+		// Verifica todas as posiçõese do parco e vê se acerta em alguma
+		// Case acerte, vai afundar o barco todo e retorna o seu tipo
 		for(int j = 0; j < board->boats[i].tSize; j++) {
 			if((board->boats[i].coord[j].pos.x == x && board->boats[i].coord[j].pos.y == y) && board->boats[i].coord[j].afloat == 1) {
 				return board->boats[i].type;
@@ -377,6 +381,22 @@ char check_sink(int x, int y, Board *board)
 	}
 
 	return 'F';
+}
+
+int change_to_A(Board *board, int i) {
+	
+	board->numBoatsAfloat -= 1;
+	board->boats[i].afloat -= 1;
+
+	for(int j = 0; j < board->boats[i].tSize; j++) {
+		if(board->boats[i].coord[j].afloat == 1) {
+			board->boats[i].coord[j].afloat = 0;
+		}
+
+		board->board[board->boats[i].coord[j].pos.x][board->boats[i].coord[j].pos.y] = 'A';
+	}
+
+	return board->boats[i].tSize;
 }
 
 /**
@@ -402,11 +422,20 @@ char check_sink(int x, int y, Board *board)
  **/
 int target(int x, int y, Board *board)
 {
+	// Verifica se as coordenadas são validas
+	// Verificar se foi atacada anteriormente 
+	// Verificar se falhou - Colocar letra F
+	// Se acertou:
+	// Substituir por *
+	// Se afundou - Substituir por A
+
 	int sink = check_sink(x, y, board);
+	/// Coordenada invalida
 	if(sink == 'I') {
 		return -2;
 	}
 
+	// Já foi atacada anteriormente
 	// Se for * ou A ou F
 	// retorna 0
 	int status = check_status(board->board[x][y]);
@@ -414,24 +443,13 @@ int target(int x, int y, Board *board)
 		return 0;
 	}
 
+	// Verifica se falhou!
 	if(board->board[x][y] == ' ') {
 		board->board[x][y] = 'F';
 		return -1;
 	}
 
-	int i = 0;
-	for(int i = 0; i < board->numBoats; i++) {
-		if(board->boats[i].afloat == 0) {
-			continue;
-		}
-
-		for(int j = 0; j < board->numBoats; j++) {
-			if(board->boats[i].coord[j].pos.x == x && board->boats[i].coord[j].pos.y == y) {
-				
-			}
-		}
-	}
-
+	// Acertou mas não afundou
 	if(sink == 'F') {
 		// Verificar se acerta num barco
 		// Caso acerte
@@ -441,12 +459,41 @@ int target(int x, int y, Board *board)
 		return 1;
 	}
 
+	// Encontra qual barco vai afundar
+	// Afunda o e troca todos os * por A
+	char type = sink;
+	int size_boat = 0;
+	for(int i = 0; i < board->numBoats; i++) {
+		// Verifica se já foi afundado
+		// Se já:
+		// Salta para o proximo barco
+		if(board->boats[i].afloat == 0) {
+			continue;
+		}
+
+		// Verifica se é do tipo que foi afundado
+		// Se não for continua (Salta para o proximo)
+		if(board->boats[i].type != type) {
+			continue;
+		}
+
+		// Valida todos os barcos
+		for(int j = 0; j < board->numBoats; j++) {
+			// Se esta posição
+			if(board->boats[i].coord[j].pos.x == x && board->boats[i].coord[j].pos.y == y) {
+				// Retornar o tamanho do barco		
+				return change_to_A(board, i);
+			}
+		}
+	}
+
+
 	// O barco afundou temos que retornar o tamanho
 	// Verificar qual é o barco e trocar na board as posições do barco por A
 
 
-	// Retornar o tamanho do barco
-	return 00;
+	// 
+	return -1;
 }
 
 void bbb(Boat *b) {
@@ -469,6 +516,8 @@ int main(void)
 
 	target(3, 4, &brd);
     print_board(N, M, brd.board, 0);
+	char b = check_sink(3, 4, &brd);
+	printf("CHAR HERe: %c\n", b);
 	target(3, 5, &brd);
     print_board(N, M, brd.board, 0);
 	target(3, 6, &brd);
@@ -482,8 +531,8 @@ int main(void)
 		brd.boats[0].coord[i].afloat = 0;
 	}
 
-	char b = check_sink(3, 3, &brd);
-	printf("CHAR: %c\n", b);
+	int d = target(3, 3, &brd);
+	printf("CHAR: %d\n", d);
     print_board(N, M, brd.board, 0);
 
     return 0;
