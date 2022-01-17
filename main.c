@@ -6,10 +6,11 @@
 
 #include <stdio.h>
 
-#define B 6
+#define B 2
 #define N 8
 #define M 8
 #define P 2
+#define MOVES 40
 
 /**Representa uma coordenada*/
 typedef struct
@@ -52,20 +53,27 @@ typedef struct {
 	Player players[P]; // Lista de players a jogar
 	int num_players; // Numero de jogadores
 	int score_boats; // Barcos afundados
-	int moves; // Numero de jogadas restantes para o jogador atacante
 	int turn; // Index do player que vai atacar
-	int running; // Decide se o jogo está a decorrer ou se já terminou
+	int running; // Decide se o jogo está a decorrer ou se já terminou (1 se estiver a correr, 0 se estiver parado)
 	Board board; // Armazena a BOARD com todos os dados do jogo
 } Game;
+
+typedef struct {
+	int index_boat;
+	int index_coord;
+} IndexesBoatCoord;
 
 const char boats[B] = {
 	'P',
 	'N',
-	'C',
-	'C',
-	'S',
-	'S',
 };
+/*
+	'C',
+	'C',
+	'S',
+	'S',
+ **/
+
 
 /**
  * NOTA IMPORTANTE: 
@@ -447,6 +455,24 @@ int change_to_A(Board *board, int i) {
 	return board->boats[i].tSize;
 }
 
+IndexesBoatCoord index_boat_coord(int x, int y, Board *brd) {
+	IndexesBoatCoord index;
+	index.index_coord = 0;
+	index.index_boat = 0;
+	for(int i = 0; i < brd->numBoats; i++) {
+		for(int j = 0; j < brd->boats[i].tSize; j++) {
+			if(brd->boats[i].coord[j].pos.x == x && brd->boats[i].coord[j].pos.y == y) {
+				// Retornar o index do barco 
+				index.index_coord = j;
+				index.index_boat = i;
+				return index;
+			}
+		}
+	}
+
+	return index;
+}
+
 /**
  * Function: target
  * 
@@ -477,7 +503,7 @@ int target(int x, int y, Board *board)
 	// Substituir por *
 	// Se afundou - Substituir por A
 
-	int sink = check_sink(x, y, board);
+	char sink = check_sink(x, y, board);
 	/// Coordenada invalida
 	if(sink == 'I') {
 		return -2;
@@ -503,8 +529,11 @@ int target(int x, int y, Board *board)
 		// Caso acerte
 		if(typeToSize(board->board[x][y]) != -1) {
 			board->board[x][y] = '*';
+			IndexesBoatCoord index_b = index_boat_coord(x, y, board);	
+			board->boats[index_b.index_boat].afloat -= 1;
+			board->boats[index_b.index_boat].coord[index_b.index_coord].afloat = 0;
+			return 1;
 		}
-		return 1;
 	}
 
 	// Encontra qual barco vai afundar
@@ -525,7 +554,7 @@ int target(int x, int y, Board *board)
 		}
 
 		// Valida todos os barcos
-		for(int j = 0; j < board->numBoats; j++) {
+		for(int j = 0; j < board->boats[i].tSize; j++) {
 			// Se esta posição
 			if(board->boats[i].coord[j].pos.x == x && board->boats[i].coord[j].pos.y == y) {
 				// Retornar o tamanho do barco		
@@ -533,11 +562,6 @@ int target(int x, int y, Board *board)
 			}
 		}
 	}
-
-
-	// O barco afundou temos que retornar o tamanho
-	// Verificar qual é o barco e trocar na board as posições do barco por A
-
 
 	// 
 	return -1;
@@ -547,6 +571,7 @@ void init_game(Game *game) {
 	game->num_players = P;
 	game->score_boats = 0;
 	game->turn = 1;
+	game->running = 1;
 }
 
 // Inicializa um player
@@ -648,12 +673,45 @@ void spawn_boats(Game *game) {
 }
 
 void attack(Game *game) {
-	
+	printf("Carregue enter!\n");
+	for(int i = 0; i < MOVES; i++) {
+		print_board(N, M, game->board.board, 0);
+		while(getchar() != '\n');
+		Position xy;
+		printf("Posição inicial (x|y -> Exemplo: 3|3 ): ");
+		scanf("%d|%d", &xy.x, &xy.y);
+
+		/*
+		*   0 se a posicao já foi atacada anteriormente
+		*   1 se acerta numa coordenada de um barco mas sem o afundar
+		*   -1 se nao tiver sucesso
+		*   -2 se a coordenada for inválida. 
+		*   caso afunde um barco, devolve o número correspondente ao tamanho do barco 
+		*   que afundou (valor de 2 a 5)
+		*/
+		int target_err = target(xy.x, xy.y, &game->board);
+
+		switch(target_err) {
+			case 0:
+				printf("Já foi atacado anteriormente! Vamos repetir!\n\n");
+				i--;
+				continue;
+				break;
+			case -2:
+				printf("Coordenada invalida. Vamos repetir!\n\n");
+				i--;
+				continue;
+				break;
+			default: 
+			break;
+		}
+		
+	}
 }
 
 void game_loop(Game *game) {
 	int option = 1;
-	while(option != 2) {
+	while(game->running == 1) {
 		// Inicio da partida!
 		printf("Vamos proceder á colocação dos barcos.\n");
 		printf("\033[31m\n\tRecomendados que o %s não veja onde são colocados os barcos\033[0m\n\n", game->players[game->turn].name);
@@ -673,23 +731,50 @@ void game_loop(Game *game) {
 
 		printf("Vamos começar a atacar\n");
 
-		int x,y;
-		target(x, y, &game->board);
+		attack(game);
 
 		// Fim da primeira partida
 		printf("1 - Jogar novamente\n");
 		printf("2 - Sair do jogo :(\n");
 		scanf("%d", &option);
+		switch(option) {
+			case 2:
+				game->running = 0;
+				break;
+			default:
+				break;
+		}
 	}	
 }
 
 //int colocaNavio()
 int main() 
 {
-    // Board brd;
-    // init_board(N, M, &brd);
-    // print_board(N, M, brd.board, 0);
+	/*
+	Board brd;
+    init_board(N, M, &brd);
+    print_board(N, M, brd.board, 0);
     
+	int a = place_boat(3, 3, 'H', 'P', &brd);
+	printf("Place error: %d\n", a);
+    print_board(N, M, brd.board, 0);
+
+	printf("%c", brd.boats[0].type);
+
+	target(3, 4, &brd);
+    print_board(N, M, brd.board, 0);
+	target(3, 5, &brd);
+    print_board(N, M, brd.board, 0);
+	target(3, 6, &brd);
+    print_board(N, M, brd.board, 0);
+	target(3, 3, &brd);
+    print_board(N, M, brd.board, 0);
+
+	a = target(3, 7, &brd);
+	printf("Place error: %d\n", a);
+    print_board(N, M, brd.board, 0);
+	*/
+
 	printf("\033[34m BATALHA NAVAL EM C \033[0m\n");
 
 	printf("Jogo simples e intuitivo\n");
