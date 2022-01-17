@@ -426,6 +426,11 @@ char check_sink(int x, int y, Board *board)
 	return 'F';
 }
 
+/*
+* change_to_A
+* Apos afundar o barco 
+* Vamos converter todas as suas coordenadas no tabuleiro para A
+*/
 int change_to_A(Board *board, int i) {
 	
 	board->numBoatsAfloat -= 1;
@@ -579,7 +584,7 @@ void change_turn(Game *game) {
 	game->turn  = 1;
 }
 
-void spawn_boat(Game *game) {
+void spawn_boats(Game *game) {
 	// Utilizar um bug como feature! ;)
 	printf("Carregue enter!\n");
 
@@ -591,6 +596,7 @@ void spawn_boat(Game *game) {
 		Position xy;
 		char dir;
 
+		printf("\t\033[34m%d de %d barcos colocados\033[0m\n", i + 1, B);
 		printf("\t\033[34m%s - Ocupa %d espaços:\033[0m\n", name, size);
 
 		printf("Direção [H - Horizontal, V - Vertical]: ");
@@ -641,6 +647,10 @@ void spawn_boat(Game *game) {
 	}
 }
 
+void attack(Game *game) {
+	
+}
+
 void game_loop(Game *game) {
 	int option = 1;
 	while(option != 2) {
@@ -648,11 +658,23 @@ void game_loop(Game *game) {
 		printf("Vamos proceder á colocação dos barcos.\n");
 		printf("\033[31m\n\tRecomendados que o %s não veja onde são colocados os barcos\033[0m\n\n", game->players[game->turn].name);
 
-		printf("\nFunciona da seguinte forma:\nVai aparecer na tela o tipo de barco e o numero de espaços que ocupa.\nDera inserir os seguintes valores:\n- Direção do barco\n- Coordenadas do ponto de inicio barco\n");
+		printf("\nFunciona da seguinte forma:\n    Vai aparecer na tela o tipo de barco e o numero de espaços que ocupa.\n    Dera inserir os seguintes valores:\n\t- Direção do barco\n\t- Coordenadas do ponto de inicio barco\n");
+		printf("\n\n\t\033[31m IMPORTANTE \033[0m\n\n");
+		printf("\033[34mTodas as coordenadas do tabuleiro começam em (0, 0) e acabam em (%d, %d) \033[0m\n", N - 1, M - 1);
 		printf("\n\033[34mEste é o tabuleiro:\033[0m\n");
 		print_board(N, M, game->board.board, 1);
 
-		spawn_boat(game);
+		// Cria todos os barcos 
+		// Verifica todo e repete se for necessario
+		spawn_boats(game);
+		for(int sn = 0; sn < 100; sn++) {
+			printf("\n");
+		}
+
+		printf("Vamos começar a atacar\n");
+
+		int x,y;
+		target(x, y, &game->board);
 
 		// Fim da primeira partida
 		printf("1 - Jogar novamente\n");
