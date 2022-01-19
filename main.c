@@ -6,11 +6,14 @@
 
 #include <stdio.h>
 
-#define B 2
+#define B 6
 #define N 8
 #define M 8
-#define P 2
 #define MOVES 40
+#define PA 1
+#define NT 1
+#define CT 2
+#define SM 2
 
 /**Representa uma coordenada*/
 typedef struct
@@ -50,30 +53,13 @@ typedef struct {
 } Player;
 
 typedef struct {
-	Player players[P]; // Lista de players a jogar
+	Player players[2]; // Lista de players a jogar
 	int num_players; // Numero de jogadores
 	int score_boats; // Barcos afundados
 	int turn; // Index do player que vai atacar
 	int running; // Decide se o jogo está a decorrer ou se já terminou (1 se estiver a correr, 0 se estiver parado)
 	Board board; // Armazena a BOARD com todos os dados do jogo
 } Game;
-
-typedef struct {
-	int index_boat;
-	int index_coord;
-} IndexesBoatCoord;
-
-const char boats[B] = {
-	'P',
-	'N',
-};
-/*
-	'C',
-	'C',
-	'S',
-	'S',
- **/
-
 
 /**
  * NOTA IMPORTANTE: 
@@ -455,22 +441,19 @@ int change_to_A(Board *board, int i) {
 	return board->boats[i].tSize;
 }
 
-IndexesBoatCoord index_boat_coord(int x, int y, Board *brd) {
-	IndexesBoatCoord index;
-	index.index_coord = 0;
-	index.index_boat = 0;
+void index_boat_coord(int x, int y, Board *brd, int *index_boat, int *index_coord) {
 	for(int i = 0; i < brd->numBoats; i++) {
 		for(int j = 0; j < brd->boats[i].tSize; j++) {
 			if(brd->boats[i].coord[j].pos.x == x && brd->boats[i].coord[j].pos.y == y) {
 				// Retornar o index do barco 
-				index.index_coord = j;
-				index.index_boat = i;
-				return index;
+				*index_coord = j;
+				*index_boat = i;
+				return;
 			}
 		}
 	}
 
-	return index;
+	return;
 }
 
 /**
@@ -529,9 +512,10 @@ int target(int x, int y, Board *board)
 		// Caso acerte
 		if(typeToSize(board->board[x][y]) != -1) {
 			board->board[x][y] = '*';
-			IndexesBoatCoord index_b = index_boat_coord(x, y, board);	
-			board->boats[index_b.index_boat].afloat -= 1;
-			board->boats[index_b.index_boat].coord[index_b.index_coord].afloat = 0;
+			int index_boat=0, index_coord=0;
+			index_boat_coord(x, y, board, &index_boat, &index_coord);	
+			board->boats[index_boat].afloat -= 1;
+			board->boats[index_boat].coord[index_coord].afloat = 0;
 			return 1;
 		}
 	}
@@ -568,7 +552,7 @@ int target(int x, int y, Board *board)
 }
 
 void init_game(Game *game) {
-	game->num_players = P;
+	game->num_players = 2;
 	game->score_boats = 0;
 	game->turn = 1;
 	game->running = 1;
@@ -609,66 +593,109 @@ void change_turn(Game *game) {
 	game->turn  = 1;
 }
 
+
+int each_boat(Game *game, char type, int i) {
+	while(getchar() != '\n');
+	char *name;
+	name = typeToName(type);
+	int size = typeToSize(type);
+	Position xy;
+	char dir;
+
+	printf("\t\033[34m%d de %d barcos colocados\033[0m\n", i + 1, B);
+	printf("\t\033[34m%s - Ocupa %d espaços:\033[0m\n", name, size);
+
+	printf("Direção [H - Horizontal, V - Vertical]: ");
+	scanf("%c", &dir);
+
+	printf("\n");
+
+	printf("Posição inicial (x|y -> Exemplo: 3|3 ): ");
+	scanf("%d|%d", &xy.x, &xy.y);
+
+	printf("\n");
+
+	init_boat(&game->board.boats[i], type, xy, dir);
+
+	/*
+	 * 0 se o barco for colocado com sucesso.
+	 * -1 se alguma das posições já está ocupada.
+	 * -2 se as coordenadas forem inválidas.
+	 * -3 se a direcção for inválida.
+	 * -4 se o tipo de barco for inválido.
+	*/
+	int place_err = place_boat(xy.x, xy.y, dir, type, &game->board);
+	if(place_err == -1) {
+		printf("Alguma posição já foi ocupada. Vamos repetir!\n\n");
+		return -1;
+	}
+
+	if(place_err == -2) {
+		printf("Coordenada invalida. Vamos repetir!\n\n");
+		return -1;
+	}
+
+	if(place_err == -3) {
+		printf("Direção invalida. Vamos repetir!\n\n");
+		return -1;
+	}
+
+	if(place_err == -4) {
+		printf("Tipo de barco invalido?. Vamos repetir!\n\n");
+		return -1;
+	}
+
+	print_board(N, M, game->board.board, 1);
+	return 0;
+}
+
+/*
+* Introduz todos os barcos de todos os tipos existentes
+*/
 void spawn_boats(Game *game) {
 	// Utilizar um bug como feature! ;)
 	printf("Carregue enter!\n");
-
-	char *name;
-	for(int i = 0; i < B; i++) {
-		while(getchar() != '\n');
-		name = typeToName(boats[i]);
-		int size = typeToSize(boats[i]);
-		Position xy;
-		char dir;
-
-		printf("\t\033[34m%d de %d barcos colocados\033[0m\n", i + 1, B);
-		printf("\t\033[34m%s - Ocupa %d espaços:\033[0m\n", name, size);
-
-		printf("Direção [H - Horizontal, V - Vertical]: ");
-		scanf("%c", &dir);
-
-		printf("\n");
-
-		printf("Posição inicial (x|y -> Exemplo: 3|3 ): ");
-		scanf("%d|%d", &xy.x, &xy.y);
-
-		printf("\n");
-
-		init_boat(&game->board.boats[i], boats[i], xy, dir);
-
-		/*
-		 * 0 se o barco for colocado com sucesso.
-		 * -1 se alguma das posições já está ocupada.
-		 * -2 se as coordenadas forem inválidas.
-		 * -3 se a direcção for inválida.
-		 * -4 se o tipo de barco for inválido.
-		*/
-		int place_err = place_boat(xy.x, xy.y, dir, boats[i], &game->board);
-		if(place_err == -1) {
-			printf("Alguma posição já foi ocupada. Vamos repetir!\n\n");
-			i--;
-			continue;
+	
+	int pa = PA, nt = NT, ct = CT, sm = SM;
+	int i = 0;
+	int res = 0;
+	while(pa > 0 || nt > 0 || ct > 0 || sm > 0) {
+		
+		if(pa > 0) {
+			res = each_boat(game, 'P', i);	
+			if(res == -1) {
+				continue;
+			}
+			pa--;
+			i++;
 		}
 
-		if(place_err == -2) {
-			printf("Coordenada invalida. Vamos repetir!\n\n");
-			i--;
-			continue;
+		if(nt > 0) {
+			res = each_boat(game, 'N', i);	
+			if(res == -1) {
+				continue;
+			}
+			nt--;
+			i++;
 		}
 
-		if(place_err == -3) {
-			printf("Direção invalida. Vamos repetir!\n\n");
-			i--;
-			continue;
+		if(ct > 0) {
+			res = each_boat(game, 'C', i);	
+			if(res == -1) {
+				continue;
+			}
+			ct--;
+			i++;
 		}
 
-		if(place_err == -4) {
-			printf("Tipo de barco invalido?. Vamos repetir!\n\n");
-			i--;
-			continue;		
+		if(sm > 0) {
+			res = each_boat(game, 'S', i);	
+			if(res == -1) {
+				continue;
+			}
+			sm--;
+			i++;
 		}
-
-		print_board(N, M, game->board.board, 1);
 	}
 }
 
