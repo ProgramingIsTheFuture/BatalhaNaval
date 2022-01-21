@@ -6,14 +6,17 @@
 
 #include <stdio.h>
 
-#define B 6
+#define B 2
 #define N 8
 #define M 8
-#define MOVES 40
+#define MOVES 02
+/*
+* Soma destes valores tem que ser igual a B
+*/
 #define PA 1
 #define NT 1
-#define CT 2
-#define SM 2
+#define CT 0
+#define SM 0
 
 /**Representa uma coordenada*/
 typedef struct
@@ -56,8 +59,12 @@ typedef struct {
 	Player players[2]; // Lista de players a jogar
 	int num_players; // Numero de jogadores
 	int score_boats; // Barcos afundados
+	int first;
 	int turn; // Index do player que vai atacar
 	int running; // Decide se o jogo está a decorrer ou se já terminou (1 se estiver a correr, 0 se estiver parado)
+	int win_lose; // Mostra se o player atacante ganha ou perde	
+	int attacker_flag;
+	int showed; // Guarda se usou a função 
 	Board board; // Armazena a BOARD com todos os dados do jogo
 } Game;
 
@@ -556,12 +563,16 @@ void init_game(Game *game) {
 	game->score_boats = 0;
 	game->turn = 1;
 	game->running = 1;
+	game->showed = 0;
+	game->win_lose = 0;
+	game->first = 1;
+	game->attacker_flag = 0;
 }
 
 // Inicializa um player
 // Recebe o nome pelo stdin
 void init_player(int i, Game *game) {
-	printf("Jogador %d\nIntroduza o seu nome: \n", i+1);
+	printf("Jogador %d\nIntroduza o seu nome: ", i+1);
 	Player p;
 	fgets(p.name, 25, stdin);
 	printf("\n");
@@ -594,6 +605,9 @@ void change_turn(Game *game) {
 }
 
 
+/*
+* Spawna um boat por vez com o seu tipo
+*/
 int each_boat(Game *game, char type, int i) {
 	while(getchar() != '\n');
 	char *name;
@@ -641,7 +655,7 @@ int each_boat(Game *game, char type, int i) {
 	}
 
 	if(place_err == -4) {
-		printf("Tipo de barco invalido?. Vamos repetir!\n\n");
+		printf("Tipo de barco invalido. Vamos repetir!\n\n");
 		return -1;
 	}
 
@@ -653,9 +667,6 @@ int each_boat(Game *game, char type, int i) {
 * Introduz todos os barcos de todos os tipos existentes
 */
 void spawn_boats(Game *game) {
-	// Utilizar um bug como feature! ;)
-	printf("Carregue enter!\n");
-	
 	int pa = PA, nt = NT, ct = CT, sm = SM;
 	int i = 0;
 	int res = 0;
@@ -699,11 +710,55 @@ void spawn_boats(Game *game) {
 	}
 }
 
+/*
+* Display winnir
+*/
+void display_winner(Game *game) {
+	printf("\n\n\n\nO jogador ");
+	printf("%s ", game->players[game->turn].name);
+	if(game->win_lose == 1) {
+		printf("venceu!\n");
+		return;
+	}
+	printf("perdeu!\n");
+}
+
+/* 
+* Attack 
+* Ataca os barcos 
+* Guarda o numero de vezes que tentou atacar
+* Verifica se ganhou o jogo 
+*/
 void attack(Game *game) {
 	printf("Carregue enter!\n");
 	for(int i = 0; i < MOVES; i++) {
-		print_board(N, M, game->board.board, 0);
+		print_board(N, M, game->board.board, game->attacker_flag);
 		while(getchar() != '\n');
+		printf("1 - Atacar\n");
+		printf("2 - Mostrar todos os barcos (Ativa/Desativa) (Perde se escolher esta opção)\n");
+		int option = 0;
+		printf("Opção: ");
+		scanf("%d", &option);
+		switch(option) {
+			case 1:
+				break;
+			case 2:
+				/* 
+				* Opcao para mostrar/esconder todos os barcos
+				* (Atacante)
+				*/ 
+				if(game->attacker_flag == 0) {
+					game->attacker_flag = 1;
+					printf("Todos os barcos escondidos são agora visiveis!\n");
+				} else {
+					game->attacker_flag = 0;
+					printf("Os barcos estão escondidos!\n");
+				}
+				i--;
+				continue;
+			default:
+				continue;
+		}
 		Position xy;
 		printf("Posição inicial (x|y -> Exemplo: 3|3 ): ");
 		scanf("%d|%d", &xy.x, &xy.y);
@@ -732,20 +787,57 @@ void attack(Game *game) {
 			default: 
 			break;
 		}
-		
+		// Verifica se o jogo já acabou
+		if(game->board.numBoatsAfloat == 0) {
+			if(game->showed == 0) {
+				game->win_lose = 1;
+			}
+			break;
+		}
 	}
+
+	// Mostra o vencedor na consola
+	display_winner(game);
+}
+
+void help_page(Game *game) {
+	printf("Ajuda!\n");
+	// Inicio da partida!
+	printf("Vamos proceder á colocação dos barcos.\n");
+	printf("\033[31m\n\tRecomendados que o %s não veja onde são colocados os barcos\033[0m\n\n", game->players[game->turn].name);
+
+	printf("\nFunciona da seguinte forma:\n    Vai aparecer na tela o tipo de barco e o numero de espaços que ocupa.\n    Dera inserir os seguintes valores:\n\t- Direção do barco\n\t- Coordenadas do ponto de inicio barco\n");
+	printf("\n\n\t\033[31m IMPORTANTE \033[0m\n\n");
+	printf("\033[34mTodas as coordenadas do tabuleiro começam em (0, 0) e acabam em (%d, %d) \033[0m\n", N - 1, M - 1);
 }
 
 void game_loop(Game *game) {
 	int option = 1;
 	while(game->running == 1) {
-		// Inicio da partida!
-		printf("Vamos proceder á colocação dos barcos.\n");
-		printf("\033[31m\n\tRecomendados que o %s não veja onde são colocados os barcos\033[0m\n\n", game->players[game->turn].name);
+		// Fim da primeira partida
 
-		printf("\nFunciona da seguinte forma:\n    Vai aparecer na tela o tipo de barco e o numero de espaços que ocupa.\n    Dera inserir os seguintes valores:\n\t- Direção do barco\n\t- Coordenadas do ponto de inicio barco\n");
-		printf("\n\n\t\033[31m IMPORTANTE \033[0m\n\n");
-		printf("\033[34mTodas as coordenadas do tabuleiro começam em (0, 0) e acabam em (%d, %d) \033[0m\n", N - 1, M - 1);
+		if(game->first == 1) {
+			printf("1 - Jogar\n");	
+		} else {
+			printf("1 - Jogar novamente\n");
+		}
+		printf("2 - Pagina de ajuda\n");
+		printf("3 - Sair do jogo :(\n");
+		printf("Opcao: ");
+		scanf("%d", &option);
+		switch(option) {
+			case 1:
+				break;
+			case 2:
+				help_page(game);
+				continue;
+			case 3:
+				game->running = 0;
+				break;
+			default:
+				break;
+		}
+
 		printf("\n\033[34mEste é o tabuleiro:\033[0m\n");
 		print_board(N, M, game->board.board, 1);
 
@@ -759,22 +851,9 @@ void game_loop(Game *game) {
 		printf("Vamos começar a atacar\n");
 
 		attack(game);
-
-		// Fim da primeira partida
-		printf("1 - Jogar novamente\n");
-		printf("2 - Sair do jogo :(\n");
-		scanf("%d", &option);
-		switch(option) {
-			case 2:
-				game->running = 0;
-				break;
-			default:
-				break;
-		}
 	}	
 }
 
-//int colocaNavio()
 int main() 
 {
 	/*
